@@ -894,6 +894,13 @@ const FoodDetailsModal = ({ food, onClose, onAnalyze, onAIAnalyze }) => {
               >
                 Get Detailed Analysis
               </button>
+
+              <button
+                onClick={() => onAIAnalyze && onAIAnalyze(food)}
+                className="mt-2 w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-4 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors"
+              >
+                🧠 AI-Powered Analysis
+              </button>
             </div>
           </div>
 
