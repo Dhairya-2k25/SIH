@@ -651,6 +651,267 @@ async def get_ayurvedic_analysis(
         ]
     }
 
+@app.get("/api/foods/{food_id}/ai-analysis")
+async def get_ai_ayurvedic_analysis(
+    food_id: str,
+    constitution: Optional[DoshaType] = Query(None, description="Primary dosha constitution"),
+    season: Optional[str] = Query(None, description="Current season (winter/spring/monsoon/autumn)"),
+    current_user: User = Depends(get_current_user)
+):
+    """Get AI-powered comprehensive Ayurvedic analysis for a food item"""
+    
+    food = await db.foods.find_one({"_id": food_id})
+    if not food:
+        raise HTTPException(status_code=404, detail="Food item not found")
+    
+    try:
+        analyzer = get_analyzer()
+        
+        # Prepare user constitution context
+        user_constitution = None
+        if constitution:
+            user_constitution = {
+                "primary_dosha": constitution.value,
+                "preferences": []
+            }
+        
+        current_season = season or get_current_season()
+        
+        # Get AI analysis
+        ai_analysis = await analyzer.analyze_single_food(
+            food_item=food,
+            user_constitution=user_constitution,
+            current_season=current_season
+        )
+        
+        return {
+            "food_name": food["food_name"],
+            "food_id": food_id,
+            "ai_analysis": ai_analysis,
+            "analysis_timestamp": datetime.now(timezone.utc),
+            "season_context": current_season
+        }
+        
+    except Exception as e:
+        logger.error(f"AI analysis failed for food {food_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"AI analysis failed: {str(e)}")
+
+@app.post("/api/diet-plans/{plan_id}/ai-analysis")
+async def analyze_diet_plan_with_ai(
+    plan_id: str,
+    analysis_params: Dict[str, Any] = {},
+    current_user: User = Depends(get_current_user)
+):
+    """Get AI-powered analysis of complete diet plan"""
+    
+    # Get diet plan
+    diet_plan = await db.diet_plans.find_one({
+        "_id": plan_id,
+        "practitioner_id": current_user.id
+    })
+    if not diet_plan:
+        raise HTTPException(status_code=404, detail="Diet plan not found")
+    
+    # Get client profile
+    client = await db.clients.find_one({
+        "_id": diet_plan["client_id"],
+        "practitioner_id": current_user.id
+    })
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    try:
+        analyzer = get_analyzer()
+        current_season = analysis_params.get("season") or get_current_season()
+        
+        # Get AI analysis
+        ai_analysis = await analyzer.analyze_diet_plan(
+            diet_plan=diet_plan,
+            client_profile=client,
+            current_season=current_season
+        )
+        
+        # Store analysis in database
+        analysis_doc = {
+            "_id": str(uuid.uuid4()),
+            "plan_id": plan_id,
+            "client_id": diet_plan["client_id"],
+            "practitioner_id": current_user.id,
+            "ai_analysis": ai_analysis,
+            "analysis_date": datetime.now(timezone.utc),
+            "season_context": current_season,
+            "analysis_version": "1.0"
+        }
+        
+        await db.diet_analyses.insert_one(analysis_doc)
+        
+        return {
+            "plan_name": diet_plan["plan_name"],
+            "client_name": client["name"],
+            "analysis_id": analysis_doc["_id"],
+            "ai_analysis": ai_analysis,
+            "analysis_timestamp": analysis_doc["analysis_date"],
+            "season_context": current_season
+        }
+        
+    except Exception as e:
+        logger.error(f"AI diet plan analysis failed for plan {plan_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"AI diet analysis failed: {str(e)}")
+
+@app.post("/api/foods/improvement-suggestions")
+async def get_food_improvement_suggestions(
+    request_data: Dict[str, Any],
+    current_user: User = Depends(get_current_user)
+):
+    """Get AI-powered suggestions for improving problematic foods in diet"""
+    
+    try:
+        problematic_foods = request_data.get("problematic_foods", [])
+        client_id = request_data.get("client_id")
+        
+        if not problematic_foods:
+            raise HTTPException(status_code=400, detail="No problematic foods provided")
+        
+        # Get client constitution if client_id provided
+        client_constitution = {"primary_dosha": "vata"}  # Default
+        if client_id:
+            client = await db.clients.find_one({
+                "_id": client_id,
+                "practitioner_id": current_user.id
+            })
+            if client:
+                client_constitution = {
+                    "primary_dosha": client.get("primary_dosha", "vata"),
+                    "secondary_dosha": client.get("secondary_dosha"),
+                    "health_goals": client.get("health_goals", []),
+                    "dietary_restrictions": client.get("dietary_restrictions", [])
+                }
+        
+        analyzer = get_analyzer()
+        current_season = request_data.get("season") or get_current_season()
+        
+        # Get AI suggestions
+        suggestions = await analyzer.get_food_improvement_suggestions(
+            problematic_foods=problematic_foods,
+            client_constitution=client_constitution,
+            current_season=current_season
+        )
+        
+        return {
+            "improvement_suggestions": suggestions,
+            "client_constitution": client_constitution,
+            "season_context": current_season,
+            "generated_at": datetime.now(timezone.utc)
+        }
+        
+    except Exception as e:
+        logger.error(f"Food improvement suggestions failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate suggestions: {str(e)}")
+
+@app.get("/api/foods/{food_id}/seasonal-recommendations")
+async def get_seasonal_food_recommendations(
+    food_id: str,
+    target_season: str = Query(..., description="Target season for recommendations"),
+    constitution: Optional[DoshaType] = Query(None, description="User constitution"),
+    current_user: User = Depends(get_current_user)
+):
+    """Get seasonal recommendations for a specific food item"""
+    
+    food = await db.foods.find_one({"_id": food_id})
+    if not food:
+        raise HTTPException(status_code=404, detail="Food item not found")
+    
+    valid_seasons = ["winter", "spring", "monsoon", "autumn"]
+    if target_season not in valid_seasons:
+        raise HTTPException(status_code=400, detail=f"Invalid season. Must be one of: {', '.join(valid_seasons)}")
+    
+    try:
+        analyzer = get_analyzer()
+        
+        user_constitution = None
+        if constitution:
+            user_constitution = {"primary_dosha": constitution.value}
+        
+        # Get AI analysis with seasonal focus
+        ai_analysis = await analyzer.analyze_single_food(
+            food_item=food,
+            user_constitution=user_constitution,
+            current_season=target_season
+        )
+        
+        # Extract seasonal-specific recommendations
+        seasonal_recommendations = {
+            "food_name": food["food_name"],
+            "target_season": target_season,
+            "seasonal_suitability": ai_analysis.get("seasonal_guidance", {}),
+            "preparation_modifications": ai_analysis.get("seasonal_guidance", {}).get("seasonal_modifications", ""),
+            "constitution_specific_advice": ai_analysis.get("personalized_recommendations", {}),
+            "overall_recommendation": "suitable" if ai_analysis.get("overall_score", 0) > 70 else "modify" if ai_analysis.get("overall_score", 0) > 50 else "avoid"
+        }
+        
+        return seasonal_recommendations
+        
+    except Exception as e:
+        logger.error(f"Seasonal recommendations failed for food {food_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate seasonal recommendations: {str(e)}")
+
+@app.get("/api/dashboard/ai-insights")
+async def get_dashboard_ai_insights(
+    current_user: User = Depends(get_current_user)
+):
+    """Get AI-powered insights for dashboard"""
+    
+    try:
+        # Get recent diet analyses
+        recent_analyses = await db.diet_analyses.find({
+            "practitioner_id": current_user.id
+        }).sort("analysis_date", -1).limit(5).to_list(length=5)
+        
+        # Get client distribution by dosha
+        clients_cursor = db.clients.find({"practitioner_id": current_user.id})
+        clients = await clients_cursor.to_list(length=None)
+        
+        dosha_distribution = {"vata": 0, "pitta": 0, "kapha": 0}
+        for client in clients:
+            dosha = client.get("primary_dosha", "vata")
+            dosha_distribution[dosha] = dosha_distribution.get(dosha, 0) + 1
+        
+        # Get current season
+        current_season = get_current_season()
+        
+        # Prepare insights
+        insights = {
+            "total_ai_analyses": len(recent_analyses),
+            "current_season": current_season,
+            "seasonal_recommendation": f"Focus on {current_season}-appropriate foods for optimal health",
+            "dosha_distribution": dosha_distribution,
+            "recent_analyses": [
+                {
+                    "analysis_id": analysis["_id"],
+                    "client_id": analysis["client_id"],
+                    "analysis_date": analysis["analysis_date"],
+                    "key_insights": analysis.get("ai_analysis", {}).get("overall_assessment", "Analysis available")[:100] + "..."
+                }
+                for analysis in recent_analyses
+            ],
+            "seasonal_tips": {
+                "winter": "Emphasize warming foods, reduce raw foods, increase healthy fats",
+                "spring": "Focus on detoxifying foods, reduce heavy foods, include bitter tastes",
+                "monsoon": "Prefer warm, dry foods, avoid fermented foods, boost digestion",
+                "autumn": "Balance with sweet and sour tastes, moderate portions, regular timing"
+            }.get(current_season, "Follow seasonal eating principles")
+        }
+        
+        return insights
+        
+    except Exception as e:
+        logger.error(f"Dashboard AI insights failed: {e}")
+        return {
+            "error": "Failed to generate AI insights",
+            "current_season": get_current_season(),
+            "basic_recommendation": "Follow traditional Ayurvedic principles for optimal health"
+        }
+
 # Client Management Routes
 @app.post("/api/clients")
 async def create_client(
