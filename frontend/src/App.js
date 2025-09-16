@@ -932,6 +932,26 @@ const NutritionAnalysis = () => {
   const [loading, setLoading] = useState(false);
   const [selectedFood, setSelectedFood] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [selectedSeason, setSelectedSeason] = useState('spring');
+  const [selectedConstitution, setSelectedConstitution] = useState('');
+
+  const seasons = [
+    { value: 'spring', label: 'Spring (Vasanta)', emoji: '🌸' },
+    { value: 'summer', label: 'Summer (Grishma)', emoji: '☀️' },
+    { value: 'monsoon', label: 'Monsoon (Varsha)', emoji: '🌧️' },
+    { value: 'autumn', label: 'Autumn (Sharad)', emoji: '🍂' },
+    { value: 'winter', label: 'Winter (Shishira)', emoji: '❄️' }
+  ];
+
+  const constitutions = [
+    { value: '', label: 'Select Constitution' },
+    { value: 'vata', label: 'Vata (Air & Space)' },
+    { value: 'pitta', label: 'Pitta (Fire & Water)' },
+    { value: 'kapha', label: 'Kapha (Earth & Water)' }
+  ];
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -962,14 +982,87 @@ const NutritionAnalysis = () => {
     }
   };
 
+  const handleAIAnalyze = async (food) => {
+    setAiLoading(true);
+    try {
+      const analysis = await apiClient.getAIAnalysis(
+        food.id, 
+        selectedConstitution || null,
+        selectedSeason
+      );
+      setAiAnalysis(analysis);
+      setSelectedFood(food);
+      setShowAIModal(true);
+    } catch (error) {
+      console.error('AI Analysis failed:', error);
+      alert('AI analysis failed. Please try again.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleGetImprovementSuggestions = async (food) => {
+    try {
+      const suggestions = await apiClient.getFoodImprovementSuggestions([
+        { food_name: food.food_name, issue: 'General assessment' }
+      ], null, selectedSeason);
+      console.log('Improvement suggestions:', suggestions);
+      // You could display these suggestions in another modal
+      alert('Improvement suggestions generated! Check console for details.');
+    } catch (error) {
+      console.error('Failed to get suggestions:', error);
+      alert('Failed to get improvement suggestions.');
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Indian Food Nutrition Analysis</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">🔍 AI-Enhanced Food Analysis</h2>
         <p className="text-gray-600 mb-6">
-          Search through 1,000+ traditional Indian recipes with complete nutritional and Ayurvedic analysis
+          Search through 1,000+ traditional Indian recipes with complete nutritional and AI-powered Ayurvedic analysis
         </p>
 
+        {/* Analysis Settings */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h3 className="text-lg font-semibold mb-4">Analysis Settings</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Current Season
+              </label>
+              <select
+                value={selectedSeason}
+                onChange={(e) => setSelectedSeason(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+              >
+                {seasons.map((season) => (
+                  <option key={season.value} value={season.value}>
+                    {season.emoji} {season.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Your Constitution (Optional)
+              </label>
+              <select
+                value={selectedConstitution}
+                onChange={(e) => setSelectedConstitution(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+              >
+                {constitutions.map((constitution) => (
+                  <option key={constitution.value} value={constitution.value}>
+                    {constitution.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Search Interface */}
         <div className="flex gap-4 mb-6">
           <input
             type="text"
@@ -987,6 +1080,15 @@ const NutritionAnalysis = () => {
             {loading ? 'Searching...' : 'Search'}
           </button>
         </div>
+
+        {aiLoading && (
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mr-3"></div>
+              <span className="text-purple-800">🧠 AI is analyzing the food with Ayurvedic principles...</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {loading && <LoadingSpinner />}
@@ -1008,6 +1110,19 @@ const NutritionAnalysis = () => {
           food={selectedFood}
           onClose={() => setShowModal(false)}
           onAnalyze={handleAnalyze}
+          onAIAnalyze={handleAIAnalyze}
+        />
+      )}
+
+      {showAIModal && aiAnalysis && (
+        <AIAnalysisModal
+          food={selectedFood}
+          analysis={aiAnalysis}
+          onClose={() => {
+            setShowAIModal(false);
+            setAiAnalysis(null);
+          }}
+          onGetSuggestions={handleGetImprovementSuggestions}
         />
       )}
     </div>
