@@ -508,7 +508,256 @@ const FoodSearchCard = ({ food, onViewDetails }) => (
   </div>
 );
 
-const FoodDetailsModal = ({ food, onClose, onAnalyze }) => {
+const AIAnalysisModal = ({ food, analysis, onClose, onGetSuggestions }) => {
+  if (!analysis) return null;
+
+  const ScoreIndicator = ({ score, label }) => (
+    <div className="text-center">
+      <div className={`w-16 h-16 rounded-full flex items-center justify-center text-lg font-bold mx-auto mb-2 ${
+        score >= 80 ? 'bg-green-100 text-green-800' :
+        score >= 60 ? 'bg-yellow-100 text-yellow-800' :
+        'bg-red-100 text-red-800'
+      }`}>
+        {score}
+      </div>
+      <p className="text-sm text-gray-600">{label}</p>
+    </div>
+  );
+
+  const DoshaEffect = ({ dosha, effect }) => (
+    <div className="text-center p-3 rounded-lg">
+      <p className="font-medium capitalize">{dosha}</p>
+      <p className={`text-sm px-2 py-1 rounded mt-1 ${
+        effect === 'balancing' ? 'bg-green-100 text-green-800' :
+        effect === 'aggravating' ? 'bg-red-100 text-red-800' :
+        'bg-gray-100 text-gray-800'
+      }`}>
+        {effect}
+      </p>
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">🧠 AI-Powered Analysis</h2>
+              <p className="text-gray-600">{food?.food_name}</p>
+              <p className="text-sm text-gray-500">Season: {analysis.season_context || 'Spring'}</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-2xl"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Overall Score */}
+            <div className="lg:col-span-1">
+              <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg p-6">
+                <ScoreIndicator 
+                  score={analysis.ai_analysis?.overall_score || 75} 
+                  label="Overall Ayurvedic Score" 
+                />
+                <div className="mt-4 text-center">
+                  <p className="text-sm text-gray-600">
+                    {analysis.ai_analysis?.overall_score >= 80 ? 'Excellent choice!' :
+                     analysis.ai_analysis?.overall_score >= 60 ? 'Good with modifications' :
+                     'Consider alternatives'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Dosha Analysis */}
+            <div className="lg:col-span-2">
+              <h3 className="text-lg font-semibold mb-4">Dosha Effects</h3>
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                {analysis.ai_analysis?.dosha_analysis && (
+                  <>
+                    <DoshaEffect dosha="Vata" effect={analysis.ai_analysis.dosha_analysis.vata_effect} />
+                    <DoshaEffect dosha="Pitta" effect={analysis.ai_analysis.dosha_analysis.pitta_effect} />
+                    <DoshaEffect dosha="Kapha" effect={analysis.ai_analysis.dosha_analysis.kapha_effect} />
+                  </>
+                )}
+              </div>
+              {analysis.ai_analysis?.dosha_analysis?.explanation && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-800">{analysis.ai_analysis.dosha_analysis.explanation}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Detailed Analysis Sections */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+            {/* Nutritional Assessment */}
+            {analysis.ai_analysis?.nutritional_assessment && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">📊 Nutritional Assessment</h3>
+                <div className="space-y-4">
+                  {analysis.ai_analysis.nutritional_assessment.strengths?.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-green-700 mb-2">Strengths</h4>
+                      <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                        {analysis.ai_analysis.nutritional_assessment.strengths.map((strength, idx) => (
+                          <li key={idx}>{strength}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {analysis.ai_analysis.nutritional_assessment.concerns?.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-red-700 mb-2">Concerns</h4>
+                      <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                        {analysis.ai_analysis.nutritional_assessment.concerns.map((concern, idx) => (
+                          <li key={idx}>{concern}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Seasonal Guidance */}
+            {analysis.ai_analysis?.seasonal_guidance && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">🌸 Seasonal Guidance</h3>
+                <div className="space-y-3">
+                  {analysis.ai_analysis.seasonal_guidance.best_seasons && (
+                    <div>
+                      <h4 className="font-medium text-gray-700 mb-2">Best Seasons</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {analysis.ai_analysis.seasonal_guidance.best_seasons.map((season, idx) => (
+                          <span key={idx} className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                            {season}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {analysis.ai_analysis.seasonal_guidance.seasonal_modifications && (
+                    <div>
+                      <h4 className="font-medium text-gray-700 mb-2">Seasonal Modifications</h4>
+                      <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+                        {analysis.ai_analysis.seasonal_guidance.seasonal_modifications}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Food Interactions */}
+          {analysis.ai_analysis?.food_interactions && (
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold mb-4">🥘 Food Interactions</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {analysis.ai_analysis.food_interactions.beneficial_combinations?.length > 0 && (
+                  <div>
+                    <h4 className="font-medium text-green-700 mb-2">✅ Beneficial Combinations</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {analysis.ai_analysis.food_interactions.beneficial_combinations.map((combo, idx) => (
+                        <span key={idx} className="px-2 py-1 bg-green-100 text-green-800 rounded text-sm">
+                          {combo}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {analysis.ai_analysis.food_interactions.avoid_combinations?.length > 0 && (
+                  <div>
+                    <h4 className="font-medium text-red-700 mb-2">❌ Avoid Combinations</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {analysis.ai_analysis.food_interactions.avoid_combinations.map((avoid, idx) => (
+                        <span key={idx} className="px-2 py-1 bg-red-100 text-red-800 rounded text-sm">
+                          {avoid}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {analysis.ai_analysis.food_interactions.timing_recommendations && (
+                <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-medium text-blue-700 mb-2">⏰ Best Timing</h4>
+                  <p className="text-sm text-blue-800">{analysis.ai_analysis.food_interactions.timing_recommendations}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Improvement Suggestions */}
+          {analysis.ai_analysis?.improvement_suggestions?.length > 0 && (
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold mb-4">💡 Improvement Suggestions</h3>
+              <div className="space-y-4">
+                {analysis.ai_analysis.improvement_suggestions.map((suggestion, idx) => (
+                  <div key={idx} className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-800 mb-2">Issue: {suggestion.issue}</h4>
+                    <p className="text-sm text-gray-600 mb-3">{suggestion.solution}</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      {suggestion.foods_to_add?.length > 0 && (
+                        <div>
+                          <h5 className="font-medium text-green-700">Add Foods:</h5>
+                          <ul className="list-disc list-inside text-gray-600">
+                            {suggestion.foods_to_add.map((food, foodIdx) => (
+                              <li key={foodIdx}>{food}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {suggestion.herbs_spices?.length > 0 && (
+                        <div>
+                          <h5 className="font-medium text-orange-700">Herbs/Spices:</h5>
+                          <ul className="list-disc list-inside text-gray-600">
+                            {suggestion.herbs_spices.map((herb, herbIdx) => (
+                              <li key={herbIdx}>{herb}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {suggestion.preparation_method && (
+                        <div>
+                          <h5 className="font-medium text-purple-700">Preparation:</h5>
+                          <p className="text-gray-600">{suggestion.preparation_method}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="mt-8 flex flex-wrap gap-4">
+            <button
+              onClick={() => onGetSuggestions && onGetSuggestions(food)}
+              className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              Get Improvement Suggestions
+            </button>
+            <button
+              onClick={onClose}
+              className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Close Analysis
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const FoodDetailsModal = ({ food, onClose, onAnalyze, onAIAnalyze }) => {
   if (!food) return null;
 
   return (
