@@ -135,8 +135,40 @@ class ApiClient {
     return this.request('/api/diet-plans/generate', { method: 'POST', body });
   }
 
-  async getClientPlans(clientId) {
-    return this.request(`/api/diet-plans/client/${clientId}`);
+  // Enhanced API methods for AI analysis
+  async getAIAnalysis(foodId, constitution = null, season = null) {
+    const params = new URLSearchParams();
+    if (constitution) params.append('constitution', constitution);
+    if (season) params.append('season', season);
+    return this.request(`/api/foods/${foodId}/ai-analysis?${params}`);
+  }
+
+  async analyzeDietPlanWithAI(planId, analysisParams = {}) {
+    return this.request(`/api/diet-plans/${planId}/ai-analysis`, {
+      method: 'POST',
+      body: analysisParams,
+    });
+  }
+
+  async getFoodImprovementSuggestions(problematicFoods, clientId = null, season = null) {
+    return this.request('/api/foods/improvement-suggestions', {
+      method: 'POST',
+      body: {
+        problematic_foods: problematicFoods,
+        client_id: clientId,
+        season: season
+      }
+    });
+  }
+
+  async getSeasonalRecommendations(foodId, targetSeason, constitution = null) {
+    const params = new URLSearchParams({ target_season: targetSeason });
+    if (constitution) params.append('constitution', constitution);
+    return this.request(`/api/foods/${foodId}/seasonal-recommendations?${params}`);
+  }
+
+  async getDashboardAIInsights() {
+    return this.request('/api/dashboard/ai-insights');
   }
 }
 
