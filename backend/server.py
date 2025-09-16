@@ -14,6 +14,11 @@ import numpy as np
 from enum import Enum
 import logging
 from pathlib import Path
+from dotenv import load_dotenv
+from ayurvedic_ai_analyzer import get_analyzer, get_current_season
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
