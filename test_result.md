@@ -210,9 +210,9 @@ metadata:
 
 test_plan:
   current_focus:
-    - "AI-powered Ayurvedic food analysis integration"
-    - "Enhanced API endpoints for AI analysis"
     - "AI Analysis Modal and Components"
+    - "Enhanced Nutrition Analysis Interface"
+    - "API Client Enhancement"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
